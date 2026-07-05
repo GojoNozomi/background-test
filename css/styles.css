@@ -582,6 +582,23 @@ body::before {
     background-repeat: no-repeat;
     transition: background-color 0.5s ease;
     will-change: transform;
+    background-attachment: fixed; /* ✨ 核心锁：防止手机端软键盘弹起时背景图被疯狂挤压变形 */
+}
+
+/* 🖥️ 智能测距：当检测到是【电脑端大宽屏】时 */
+@media screen and (min-width: 1025px) {
+    body::before {
+        /* ✨ 黄金对齐：把合照的中心点从正中间往上提 20%，这样在电脑宽屏看，你和老公的脸部、上半身会完美露出来，绝对不会被聊天框或者底下无情截断！ */
+        background-position: center 20%; 
+    }
+}
+
+/* 📱 智能测距：当检测到是【手机端窄竖屏】时 */
+@media screen and (max-width: 768px) {
+    body::before {
+        /* 手机端保持最完美的上下居中全面铺满 */
+        background-position: center center;
+    }
 }
 
 /* 装饰性渐变层，独立于背景图 */
