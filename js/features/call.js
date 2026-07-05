@@ -811,35 +811,47 @@ html:not([data-theme="dark"])[data-color-theme="black-white"] .message-sent{
         p.classList.add('open');
     }
 
-    // ==========================================
-    // 16. 大窗口鼠标/触控板拖拽引擎
+// ==========================================
+    // 16. 窗口绝对定位系统（高精度防粘连拖拽版）
     // ==========================================
     function initDrag() {
         const hdr = document.getElementById('call-window-header');
         const win = document.getElementById('call-window');
         if (!hdr || !win) return;
         let on = false;
-        hdr.addEventListener('pointerdown', e => {
-            if (e.target.closest('button') || e.target.closest('i')) return;
-            if (e.pointerType === 'mouse' && e.button !== 0) return;
-            e.preventDefault();
-            const r = win.getBoundingClientRect();
-            S.dragOff = { x: e.clientX - r.left, y: e.clientY - r.top };
-            on = true;
-            try { hdr.setPointerCapture(e.pointerId); } catch(_) {}
-        });
-        hdr.addEventListener('pointermove', e => {
-            if (!on || !S.dragOff) return; e.preventDefault();
-            win.style.left   = clamp(e.clientX - S.dragOff.x, 0, window.innerWidth  - win.offsetWidth)  + 'px';
-            win.style.top    = clamp(e.clientY - S.dragOff.y, 0, window.innerHeight - win.offsetHeight) + 'px';
-            win.style.right  = 'auto'; win.style.bottom = 'auto';
-        });
+
         const stop = e => {
             if (!on) return; on = false; S.dragOff = null;
             const r = win.getBoundingClientRect(); S.pos = { x: r.left, y: r.top };
             localStorage.setItem(KEY_POS, JSON.stringify(S.pos));
             try { hdr.releasePointerCapture(e.pointerId); } catch(_) {}
         };
+
+        hdr.addEventListener('pointerdown', e => {
+            if (e.target.closest('button') || e.target.closest('i')) return;
+            if (e.button !== 0) return; // 只响应主手势
+            e.preventDefault();
+            const r = win.getBoundingClientRect();
+            S.dragOff = { x: e.clientX - r.left, y: e.clientY - r.top };
+            on = true;
+            try { hdr.setPointerCapture(e.pointerId); } catch(_) {}
+        });
+
+        hdr.addEventListener('pointermove', e => {
+            if (!on || !S.dragOff) return; 
+            
+            // 🚨 同样注入安全锁：手抬起时如果漏掉信号，只要鼠标在动且没按压，立刻强行脱离！
+            if (e.buttons === 0) {
+                stop(e);
+                return;
+            }
+            
+            e.preventDefault();
+            win.style.left   = clamp(e.clientX - S.dragOff.x, 0, window.innerWidth  - win.offsetWidth)  + 'px';
+            win.style.top    = clamp(e.clientY - S.dragOff.y, 0, window.innerHeight - win.offsetHeight) + 'px';
+            win.style.right  = 'auto'; win.style.bottom = 'auto';
+        });
+
         hdr.addEventListener('pointerup', stop);
         hdr.addEventListener('pointercancel', stop);
     }
@@ -884,15 +896,24 @@ html:not([data-theme="dark"])[data-color-theme="black-white"] .message-sent{
         pill.addEventListener('pointercancel', stop);
     }
 
-    // ==========================================
-    // 18. 消灭缩放时触控板狂跳的缩放手柄驱动
+   // ==========================================
+    // 18. 消灭缩放时触控板狂跳的缩放手柄驱动（苹果触控板满血全免疫版）
     // ==========================================
     function initResize() {
         const h = document.getElementById('call-resize-handle');
         const win = document.getElementById('call-window');
         if (!h || !win) return;
         let on = false;
+
+        const stop = e => {
+            if (!on) return; on = false; S.resizeInit = null;
+            localStorage.setItem(KEY_SIZE, JSON.stringify(S.size));
+            try { h.releasePointerCapture(e.pointerId); } catch(_) {}
+        };
+
         h.addEventListener('pointerdown', e => {
+            // 🚨 触控板防误触：只允许主触控/鼠标左键触发，封杀轻拂引起的乱触
+            if (e.button !== 0) return; 
             e.preventDefault(); e.stopPropagation();
             const r = win.getBoundingClientRect();
             
@@ -906,17 +927,23 @@ html:not([data-theme="dark"])[data-color-theme="black-white"] .message-sent{
             on = true;
             try { h.setPointerCapture(e.pointerId); } catch(_) {}
         });
+
         h.addEventListener('pointermove', e => {
-            if (!on || !S.resizeInit) return; e.preventDefault();
+            if (!on || !S.resizeInit) return; 
+            
+            // 🚨 终极降维打击：检查当前触控板是否真的有物理按压！
+            // 如果 e.buttons 为 0，说明你的手指已经抬起或离开了，立刻强制刹车归零！
+            if (e.buttons === 0) {
+                stop(e);
+                return;
+            }
+            
+            e.preventDefault();
             S.size.w = clamp(S.resizeInit.w + (e.clientX - S.resizeInit.ex), 160, 600);
             S.size.h = clamp(S.resizeInit.h + (e.clientY - S.resizeInit.ey), 240, 800);
             win.style.width = S.size.w + 'px'; win.style.height = S.size.h + 'px';
         });
-        const stop = e => {
-            if (!on) return; on = false; S.resizeInit = null;
-            localStorage.setItem(KEY_SIZE, JSON.stringify(S.size));
-            try { h.releasePointerCapture(e.pointerId); } catch(_) {}
-        };
+
         h.addEventListener('pointerup', stop);
         h.addEventListener('pointercancel', stop);
     }
