@@ -2,7 +2,7 @@
     'use strict';
 
     // ==========================================
-    // 1. 核心状态与本地存储键位初始化 (完好保留)
+    // 1. 核心状态与本地存储键位初始化
     // ==========================================
     const KEY_ENABLED  = 'callFeatureEnabled';
     const KEY_POS      = 'callWindowPos';
@@ -28,13 +28,13 @@
         resizeInit:      null,
         incomingTimer:   null,
         connectingTimer: null,
-        outgoingTimeoutTimer: null, // 🌟 独家追加：去电30秒强制挂断安全计时器
+        outgoingTimeoutTimer: null, // 去电强制挂断安全计时器
         randomCallTimer: null,
         isPartnerCall:   false,
     };
 
     // ==========================================
-    // 2. 核心独立音频驱动引擎 (彻底切断全局乱响 Bug)
+    // 2. 核心独立音频驱动引擎
     // ==========================================
     let callAudioInstance = null;
 
@@ -48,19 +48,18 @@
     }
 
     function playCallSound(type, loop = false) {
-        stopAllCallSounds(); // 播放前无条件清理上一个音频对象
-        // 🌟 动态读取老婆在前台设置面板粘贴或上传的 custom_incoming_url / custom_outgoing_url
+        stopAllCallSounds(); 
         const url = localStorage.getItem(`custom_${type}_url`);
         if (!url) {
-            console.log(`[音频核心] 前台未检测到自定义 ${type} 铃声链接，保持静音状态。`);
+            console.log(`[音频核心] 未检测到自定义 ${type} 铃声，保持静音。`);
             return; 
         }
         try {
             callAudioInstance = new Audio(url);
             callAudioInstance.loop = loop;
-            callAudioInstance.autoplay = false; // 严禁自动播放抢跑
+            callAudioInstance.autoplay = false; 
             callAudioInstance.play().catch(e => {
-                console.log("[音频核心] 自动播放受浏览器策略限制，等待交互触发:", e);
+                console.log("[音频核心] 自动播放等待交互触发:", e);
             });
         } catch (err) {
             console.error("[音频核心] 铃声驱动初始化失败:", err);
@@ -87,7 +86,7 @@
 </svg>`;
 
     // ==========================================
-    // 4. 原生样式动态注入核心 (CSS样式)
+    // 4. 原生样式动态注入核心
     // ==========================================
     function injectCSS() {
         if (document.getElementById('call-feature-style')) return;
@@ -414,7 +413,7 @@ html:not([data-theme="dark"])[data-color-theme="black-white"] .message-sent{
     }
 
     // ==========================================
-    // 5. 原生HTML节点注入器 (修正重复 ID 大坑)
+    // 5. 原生HTML节点注入器
     // ==========================================
     function injectHTML() {
         if (document.getElementById('call-feature-root')) return;
@@ -607,7 +606,6 @@ html:not([data-theme="dark"])[data-color-theme="black-white"] .message-sent{
     function positionPill() {
         const pill = document.getElementById('call-mini-pill');
         if (!pill) return;
-        // 🌟 核心修复：如果全网没有拖拽胶囊缓存记录，在电脑端安全地初始化到视窗偏右下角，防止消失
         if (!S.pillPos) {
             S.pillPos = { x: window.innerWidth - 220, y: window.innerHeight - 150 };
         }
@@ -669,22 +667,21 @@ html:not([data-theme="dark"])[data-color-theme="black-white"] .message-sent{
         clearTimeout(S.outgoingTimeoutTimer);
 
         if (!isPartner) {
-            // 🌟 【去电音效定点激活】：只在确定发起拨号的瞬间，调用播放去电嘟嘟声
             playCallSound('outgoing', true);
 
-            // 🎲 【30秒内随时应答接听】：生成一个 3 秒到 25 秒之间的随机时机让梦角接起电话
-            const randomPickUpDelay = 3000 + Math.random() * 22000;
+            // 🎲 爆改：生成 3 秒到 110 秒之间的任意随机时刻让梦角接起电话（完美适配2分钟）
+            const randomPickUpDelay = 3000 + Math.random() * 107000;
             
             S.connectingTimer = setTimeout(() => {
                 if (!S.active) return;
                 S.startTime = Date.now();
                 if (conn) conn.classList.remove('visible');
                 if (body) body.style.display = '';
-                stopAllCallSounds(); // 🌟 核心拦截：接通成功的第一微秒，去电音必须立刻切断闭嘴！
+                stopAllCallSounds(); 
                 tick();
             }, randomPickUpDelay);
 
-            // 🚨 【去电超时限制】：如果 30 秒上限时间强制到了对方由于任何灵异问题没接通，切断并显示无应答
+            // 🚨 爆改：稳稳锁死 2 分钟去电寿命上限 (120,000 毫秒)！不接听则自动挂断显示无应答
             S.outgoingTimeoutTimer = setTimeout(() => {
                 if (S.active && !S.startTime) {
                     endCall();
@@ -693,10 +690,9 @@ html:not([data-theme="dark"])[data-color-theme="black-white"] .message-sent{
                     if (typeof showNotification === 'function')
                         showNotification(lbl, 'info', 3000);
                 }
-            }, 30000); // 稳稳锁死 30 秒去电寿命
+            }, 120000); 
 
         } else {
-            // 🌟 收到来电时你点击了前台的“接听”按钮，进入通道连接前强制抹杀来电铃声
             stopAllCallSounds();
             S.connectingTimer = setTimeout(() => {
                 if (!S.active) return;
@@ -720,7 +716,6 @@ html:not([data-theme="dark"])[data-color-theme="black-white"] .message-sent{
         clearTimeout(S.incomingTimer);
         clearTimeout(S.outgoingTimeoutTimer);
 
-        // 🌟 【音频切断保护】：不管是什么原因导致的通话中止，挂断瞬间所有音频强制停止并释放内存！
         stopAllCallSounds();
 
         ['call-window','call-mini-pill','call-incoming-overlay'].forEach(id => {
@@ -755,17 +750,16 @@ html:not([data-theme="dark"])[data-color-theme="black-white"] .message-sent{
         ov.classList.add('visible');
         clearTimeout(S.incomingTimer);
 
-        // 🌟 【来电铃声定点激活】：只在弹出来电大遮罩层的一瞬间，调起循环播放来电铃声
         playCallSound('incoming', true);
 
-        // 🚨 【来电超时爆改】：由原版极短的22秒，精准升级为足足响铃 5分钟 (300,000 毫秒) 才会超时挂断！
+        // 来电超时上限精准保持在 5分钟 (300,000 毫秒) 
         S.incomingTimer = setTimeout(() => {
             if (!ov.classList.contains('visible')) return;
             ov.classList.remove('visible');
-            stopAllCallSounds(); // 超时未接，铃声止步
+            stopAllCallSounds(); 
             const myName = (typeof settings !== 'undefined' && settings.myName) || '我';
             sendCallEvent('fa-phone-slash', `${myName}未接听 ${getName()} 的来电`, null);
-        }, 300000); // 满血 5 分钟守护
+        }, 300000); 
     }
 
     // ==========================================
@@ -818,7 +812,7 @@ html:not([data-theme="dark"])[data-color-theme="black-white"] .message-sent{
     }
 
     // ==========================================
-    // 16. 全新优化：大窗口鼠标/触控板拖拽引擎
+    // 16. 大窗口鼠标/触控板拖拽引擎
     // ==========================================
     function initDrag() {
         const hdr = document.getElementById('call-window-header');
@@ -826,7 +820,6 @@ html:not([data-theme="dark"])[data-color-theme="black-white"] .message-sent{
         if (!hdr || !win) return;
         let on = false;
         hdr.addEventListener('pointerdown', e => {
-            // 🌟 核心修复：如果鼠标或者手指点中的是顶部的子按钮（比如最小化按钮），直接放行，绝不阻断点击事件！
             if (e.target.closest('button') || e.target.closest('i')) return;
             if (e.pointerType === 'mouse' && e.button !== 0) return;
             e.preventDefault();
@@ -852,14 +845,13 @@ html:not([data-theme="dark"])[data-color-theme="black-white"] .message-sent{
     }
 
     // ==========================================
-    // 17. 🌟 终极重构：全平台微信式小胶囊自由随意拖拽引擎
+    // 17. 全平台微信式小胶囊自由随意拖拽引擎
     // ==========================================
     function initPillDrag() {
         const pill = document.getElementById('call-mini-pill');
         if (!pill) return;
         let on = false;
         pill.addEventListener('pointerdown', e => {
-            // 如果点中的是胶囊里的小挂断图标按钮，不进行拖动判定，放行点击挂断！
             if (e.target.closest('.call-mini-hangup') || e.target.closest('svg')) return;
             e.preventDefault();
             const r = pill.getBoundingClientRect();
@@ -871,7 +863,7 @@ html:not([data-theme="dark"])[data-color-theme="black-white"] .message-sent{
         pill.addEventListener('pointermove', e => {
             if (!on || !S.pillDragOff) return; 
             e.preventDefault();
-            S.pillDragged = true; // 标记正在产生位移，防止松手误触发点击事件
+            S.pillDragged = true; 
             S.pillPos = {
                 x: e.clientX - S.pillDragOff.x,
                 y: e.clientY - S.pillDragOff.y
@@ -883,7 +875,6 @@ html:not([data-theme="dark"])[data-color-theme="black-white"] .message-sent{
         const stop = e => {
             if (!on) return; on = false;
             if (S.pillDragged && S.pillPos) {
-                // 拖拽松手，死死写进本地浏览器持久缓存，无论切什么设备，都能完整记住你拖过的新坐标！
                 localStorage.setItem(KEY_PILL_POS, JSON.stringify(S.pillPos));
             }
             S.pillDragOff = null;
@@ -894,7 +885,7 @@ html:not([data-theme="dark"])[data-color-theme="black-white"] .message-sent{
     }
 
     // ==========================================
-    // 18. 🌟 终极重构：消灭缩放时触控板狂跳的缩放手柄驱动
+    // 18. 消灭缩放时触控板狂跳的缩放手柄驱动
     // ==========================================
     function initResize() {
         const h = document.getElementById('call-resize-handle');
@@ -905,13 +896,11 @@ html:not([data-theme="dark"])[data-color-theme="black-white"] .message-sent{
             e.preventDefault(); e.stopPropagation();
             const r = win.getBoundingClientRect();
             
-            // 🌟 终极爆破 Bug：在触控板按下去准备拉伸的瞬间，强行切断 CSS 默认的 right 右对齐属性！
-            // 把定位模式强行转为左上角坐标打桩固定，这样右下角拉伸大小就绝对不会再跟右侧定位打架颤抖了！
             win.style.left = r.left + 'px';
             win.style.top = r.top + 'px';
             win.style.right = 'auto';
             win.style.bottom = 'auto';
-            S.pos = { x: r.left, y: r.top }; // 同步存储位置
+            S.pos = { x: r.left, y: r.top }; 
             
             S.resizeInit = { ex: e.clientX, ey: e.clientY, w: r.width, h: r.height };
             on = true;
@@ -939,14 +928,14 @@ html:not([data-theme="dark"])[data-color-theme="black-white"] .message-sent{
         document.getElementById('call-inc-reject')?.addEventListener('click', () => {
             document.getElementById('call-incoming-overlay')?.classList.remove('visible');
             clearTimeout(S.incomingTimer);
-            stopAllCallSounds(); // 手动拒绝，立刻静音
+            stopAllCallSounds(); 
             const myName = (typeof settings !== 'undefined' && settings.myName) || '我';
             sendCallEvent('fa-phone-slash', `${myName}拒绝了 ${getName()} 的通话`, null);
         });
         document.getElementById('call-inc-accept')?.addEventListener('click', () => {
             document.getElementById('call-incoming-overlay')?.classList.remove('visible');
             clearTimeout(S.incomingTimer); 
-            stopAllCallSounds(); // 手动接听，立刻切断来电铃声，准备接通
+            stopAllCallSounds(); 
             startCall(true);
         });
 
@@ -955,7 +944,7 @@ html:not([data-theme="dark"])[data-color-theme="black-white"] .message-sent{
         document.getElementById('call-minimize-btn')?.addEventListener('click', minimizeWindow);
         document.getElementById('call-mini-pill')?.addEventListener('click', e => {
             if (e.target.closest('.call-mini-hangup') || e.target.closest('svg')) return;
-            if (!S.pillDragged) restoreWindow(); // 只有在没有进行拖动位移时，点击胶囊才能还原大窗口
+            if (!S.pillDragged) restoreWindow(); 
         });
         document.getElementById('call-immersive-btn')?.addEventListener('click', e => { e.stopPropagation(); toggleImmersive(); });
         document.getElementById('call-window')?.addEventListener('click', e => {
@@ -1007,7 +996,7 @@ html:not([data-theme="dark"])[data-color-theme="black-white"] .message-sent{
     window.callFeature = { startCall, endCall, showIncomingCall, restoreWindow, minimizeWindow };
 
     // ==========================================
-    // 20. 网页关闭前安全异步挂断并同步导出聊天历史
+    // 20. 网页关闭前安全挂断
     // ==========================================
     window.addEventListener('beforeunload', function() {
         if (S.active) {
@@ -1015,7 +1004,7 @@ html:not([data-theme="dark"])[data-color-theme="black-white"] .message-sent{
             S.active = false; S.startTime = null;
             cancelAnimationFrame(S.timerRAF);
             clearTimeout(S.connectingTimer); clearTimeout(S.incomingTimer); clearTimeout(S.outgoingTimeoutTimer);
-            stopAllCallSounds(); // 强制闭嘴
+            stopAllCallSounds(); 
             sendCallMsg(dur);
             if (typeof window._backupCriticalData === 'function') {
                 window._backupCriticalData();
