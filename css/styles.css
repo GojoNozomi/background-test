@@ -11341,3 +11341,29 @@ body[data-avatar-pos="custom"] .message-avatar {
     border-color: var(--accent-color) !important;
     outline: none;
 }
+
+/* ===================================================
+   👑 老婆大人专属：全平台本地上传背景图智能完美自适应补丁
+   =================================================== */
+body, body::before {
+    /* 强行拦截：不管 JS 怎么捣鬼，全员锁定“不重复、全面积铺满” */
+    background-size: cover !important;
+    background-repeat: no-repeat !important;
+    background-attachment: fixed !important; /* 锁死视差：彻底封杀手机端软键盘弹起时，背景图被无情挤扁的世纪Bug！ */
+}
+
+/* 🖥️ 智能测距：当检测到是【电脑端大宽屏】时 */
+@media screen and (min-width: 1025px) {
+    body, body::before {
+        /* 黄金对齐：强行把背景图的视角往上提，确保在电脑宽屏看，你和老公的脸部和上半身完美露出来，绝对不会被聊天框挡住！ */
+        background-position: center 18% !important; 
+    }
+}
+
+/* 📱 智能测距：当检测到是【手机端窄竖屏】时 */
+@media screen and (max-width: 768px) {
+    body, body::before {
+        /* 手机端全员回归最完美的正居中全面铺满 */
+        background-position: center center !important;
+    }
+}
